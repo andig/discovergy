@@ -12,6 +12,9 @@ use League\OAuth1\Client\Credentials\ConsumerCredentials;
 use League\OAuth1\Client\Credentials\TokenCredentials;
 use League\OAuth1\Client\Credentials\CredentialsException;
 
+/**
+ * ApiClient encapsulates a Discovergy OAuth1 server
+ */
 class ApiClient
 {
     const CREDENTIALS_FILE = __DIR__ . '/../../secret.json';
@@ -31,6 +34,10 @@ class ApiClient
         $this->clientConfig = $clientConfig;
     }
 
+    /**
+     * Create a new server instance
+     * Uses either cached credentials or performs new login
+     */
     public function createApiServer()
     {
         if (($cached = $this->loadCachedCredentials()) != false) {
@@ -61,6 +68,17 @@ class ApiClient
         }
     }
 
+    /**
+     * Return the current server instance
+     */
+    public function getApiServer()
+    {
+        return $this->server;
+    }
+
+    /**
+     * Load chached server credentials
+     */
     private function loadCachedCredentials()
     {
         $credentials = json_decode(@file_get_contents(self::CREDENTIALS_FILE), true);
@@ -82,6 +100,9 @@ class ApiClient
         return [$consumerCredentials, $token];
     }
 
+    /**
+     * Save server credentials to cache
+     */
     private function saveCredentialsToCache($consumerCredentials)
     {
         file_put_contents(self::CREDENTIALS_FILE, json_encode([
@@ -96,6 +117,9 @@ class ApiClient
         ]));
     }
 
+    /**
+     * Validate credentials loaded from cache
+     */
     private function validateCredentials($credentials)
     {
         if (!isset($credentials['identifier']) || empty($credentials['identifier'])) {
@@ -106,6 +130,9 @@ class ApiClient
         }
     }
 
+    /**
+     * Call api - creates a signed OAuth1 request
+     */
     public function call($api, $queryParams = [], $options = [])
     {
         if (!isset($this->server)) {

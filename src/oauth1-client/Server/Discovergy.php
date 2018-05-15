@@ -13,6 +13,9 @@ use League\OAuth1\Client\Credentials\TokenCredentials;
 use League\OAuth1\Client\Credentials\CredentialsException;
 // use GuzzleHttp\Client as GuzzleHttpClient;
 
+/**
+ * Discovergy OAuth1 server class
+ */
 class Discovergy extends Server
 {
     const DISCOVERGY_API_ENDPOINT = 'https://api.discovergy.com/public';
@@ -22,6 +25,13 @@ class Discovergy extends Server
         return self::DISCOVERGY_API_ENDPOINT . '/v1/oauth1/consumer_token';
     }
 
+    /**
+     * Generate consumer token bound to client from api
+     *
+     * @param $clientid client identifier
+     *
+     * @return ConsumerCredentials
+     */
     public function getConsumerToken($clientid)
     {
         $uri = $this->urlConsumerToken();
@@ -118,6 +128,11 @@ class Discovergy extends Server
         return $this->createVerifier((string) $response->getBody());
     }
 
+    /**
+     * Extract oauth_verifier from authorization response
+     *
+     * @param $body response body
+     */
     protected function createVerifier($body)
     {
         $parameters = null;
@@ -130,6 +145,9 @@ class Discovergy extends Server
         return $parameters['oauth_verifier'];
     }
 
+    /**
+     * Call api endpoint with given token credentials
+     */
     public function call(TokenCredentials $tokenCredentials, $api, $queryParams = [], $options = [])
     {
         $url = self::DISCOVERGY_API_ENDPOINT . '/v1/' . $api;

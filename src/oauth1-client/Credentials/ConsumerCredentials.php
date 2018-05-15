@@ -7,6 +7,9 @@
 
 namespace League\OAuth1\Client\Credentials;
 
+/**
+ * ConsumerCredentials are used by the Discovergy API to obtain ClientCredentials
+ */
 class ConsumerCredentials extends ClientCredentials implements CredentialsInterface
 {
     private $client;
