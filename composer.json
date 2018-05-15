@@ -1,0 +1,21 @@
+{
+    "name": "andig/discovergy",
+    "description": "Discovergy API client",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "andig",
+            "email": "cpuidle@gmx.de"
+        }
+    ],
+    "require": {
+        "league/oauth1-client": "^1.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "Discovergy\\": "src/discovergy",
+            "League\\OAuth1\\Client\\": "src/oauth1-client"
+        }
+    }
+}
