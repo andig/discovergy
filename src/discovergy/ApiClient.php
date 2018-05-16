@@ -81,8 +81,7 @@ class ApiClient
      */
     private function loadCachedCredentials()
     {
-        $credentials = json_decode(@file_get_contents(self::CREDENTIALS_FILE), true);
-        if (!$credentials) {
+        if (null === ($credentials = FileHelper::loadJsonFile(self::CREDENTIALS_FILE))) {
             return false;
         }
 
@@ -105,7 +104,7 @@ class ApiClient
      */
     private function saveCredentialsToCache($consumerCredentials)
     {
-        file_put_contents(self::CREDENTIALS_FILE, json_encode([
+        $json = json_encode([
             'consumer' => [
                 'identifier' => $consumerCredentials->getIdentifier(),
                 'secret' => $consumerCredentials->getSecret(),
@@ -114,7 +113,11 @@ class ApiClient
                 'identifier' => $this->token->getIdentifier(),
                 'secret' => $this->token->getSecret(),
             ],
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT);
+
+        if (false === @file_put_contents(self::CREDENTIALS_FILE, $json)) {
+            throw new \Exception('Could not save credentials to ' . self::CREDENTIALS_FILE);
+        }
     }
 
     /**
