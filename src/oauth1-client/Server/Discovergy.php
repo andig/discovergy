@@ -105,7 +105,7 @@ class Discovergy extends Server
     /**
      * Redirect the client to the authorization URL.
      *
-     * @param TemporaryCredentials|string $temporaryIdentifier
+     * @param TemporaryCredentials $temporaryIdentifier
      */
     public function authorizeOutOfBand($temporaryIdentifier)
     {
@@ -180,23 +180,24 @@ class Discovergy extends Server
     }
 
     /**
-    * {@inheritDoc}
-    */
+     * {@inheritDoc}
+     */
     public function urlTemporaryCredentials()
     {
         return self::DISCOVERGY_API_ENDPOINT . '/v1/oauth1/request_token';
     }
 
     /**
-    * {@inheritDoc}
-    */
+     * {@inheritDoc}
+     */
     public function urlAuthorization()
     {
         return self::DISCOVERGY_API_ENDPOINT . '/v1/oauth1/authorize';
     }
+
     /**
-    * {@inheritDoc}
-    */
+     * {@inheritDoc}
+     */
     public function urlTokenCredentials()
     {
         return self::DISCOVERGY_API_ENDPOINT . '/v1/oauth1/access_token';

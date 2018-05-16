@@ -114,7 +114,7 @@ class ApiClient
                 'identifier' => $this->token->getIdentifier(),
                 'secret' => $this->token->getSecret(),
             ],
-        ]));
+        ], JSON_PRETTY_PRINT));
     }
 
     /**
