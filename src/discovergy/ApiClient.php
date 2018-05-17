@@ -8,19 +8,23 @@
 namespace Discovergy;
 
 use League\OAuth1\Client\Server\Discovergy;
-use League\OAuth1\Client\Credentials\ConsumerCredentials;
+use League\OAuth1\Client\Server\DiscovergyOutOfBand;
+use League\OAuth1\Client\Credentials\ClientCredentials;
 use League\OAuth1\Client\Credentials\TokenCredentials;
 use League\OAuth1\Client\Credentials\CredentialsException;
+use GuzzleHttp\Exception\BadResponseException;
 
 /**
  * ApiClient encapsulates a Discovergy OAuth1 server
  */
 class ApiClient
 {
-    const CREDENTIALS_FILE = __DIR__ . '/../../secret.json';
+    const DISCOVERGY_CREDENTIALS = __DIR__ . '/../../discovergy.json';
+    const CLIENT_CREDENTIALS = __DIR__ . '/../../client.json';
+    const TOKEN_CREDENTIALS = __DIR__ . '/../../token.json';
 
-    /** @var array */
-    protected $clientConfig;
+    const DISCOVERGY_ATTRIBUTES = ['clientid', 'identifier', 'secret'];
+    const DEFAULT_ATTRIBUTES = ['identifier', 'secret'];
 
     /** @var League\OAuth1\Client\Credentials\TokenCredentials */
     protected $token;
@@ -28,108 +32,158 @@ class ApiClient
     /** @var League\OAuth1\Client\Server\Discovergy */
     protected $server;
 
-    public function __construct($clientConfig)
-    {
-        $this->validateCredentials($clientConfig);
-        $this->clientConfig = $clientConfig;
-    }
-
     /**
      * Create a new server instance
      * Uses either cached credentials or performs new login
      */
     public function createApiServer()
     {
-        if (($cached = $this->loadCachedCredentials()) != false) {
-            list($consumerCredentials, $this->token) = $cached;
+        if (null == ($clientCredentials = $this->loadClientCredentials())) {
+            // prepare oob server
+            $discovergyCredentials = $this->loadDiscovergyCredentials();
+            $oob = new DiscovergyOutOfBand($discovergyCredentials);
 
-            $this->server = new Discovergy($consumerCredentials);
+            // get consumer credentials (requires client id)
+            $clientId = $discovergyCredentials['clientid'];
+            $clientCredentials = $oob->getClientCredentialsForClientId($clientId);
+            $this->saveClientCredentials($clientCredentials);
+            // print_r($clientCredentials);
         }
-        else {
-            // Retrieve consumer credentials
-            $clientServer = new Discovergy($this->clientConfig);
-            $consumerCredentials = $clientServer->getConsumerToken('volkszaehler');
-            // print_r($consumerCredentials);
 
-            // Retrieve temporary credentials
-            $this->server = new Discovergy($consumerCredentials);
-            $temporaryCredentials = $this->server->getTemporaryCredentials();
-            // print_r($temporaryCredentials);
+        $this->server = new Discovergy($clientCredentials);
 
-            // Authorize
-            $verifier = $clientServer->authorizeOutOfBand($temporaryCredentials);
-            // printf("%s\n", $verifier);
-
-            // Retrieve token
-            $this->token = $this->server->getTokenCredentials($temporaryCredentials, $temporaryCredentials->getIdentifier(), $verifier);
-            // print_r($token);
-
-            $this->saveCredentialsToCache($consumerCredentials);
+        if (null == ($this->token = $this->loadTokenCredentials())) {
+            $this->createTokenCredentials();
         }
     }
 
     /**
-     * Return the current server instance
+     * Create token credentials
      */
-    public function getApiServer()
+    public function createTokenCredentials()
     {
-        return $this->server;
+        // prepare oob server
+        $discovergyCredentials = $this->loadDiscovergyCredentials();
+        $oob = new DiscovergyOutOfBand($discovergyCredentials);
+
+        // get temporary credentials
+        $temporaryCredentials = $this->server->getTemporaryCredentials();
+        // print_r($temporaryCredentials);
+
+        // authorize temporary credentials
+        $verifier = $oob->authorize($temporaryCredentials);
+        // printf("%s\n", $verifier);
+
+        // Retrieve token
+        $this->token = $this->server->getTokenCredentials($temporaryCredentials, $temporaryCredentials->getIdentifier(), $verifier);
+        $this->saveTokenCredentials($this->token);
+        // print_r($this->token);
     }
 
     /**
-     * Load chached server credentials
+     * Load discovergy credentials from file
      */
-    private function loadCachedCredentials()
+    protected function loadDiscovergyCredentials()
     {
-        if (null === ($credentials = FileHelper::loadJsonFile(self::CREDENTIALS_FILE))) {
-            return false;
+        $credentials = FileHelper::loadJsonFile(self::DISCOVERGY_CREDENTIALS);
+
+        try {
+            $this->validateCredentials($credentials, self::DISCOVERGY_ATTRIBUTES);
+        }
+        catch (CredentialsException $e) {
+            throw new CredentialsException('Invalid discovergy credentials attribute: ', $e->getMessage());
         }
 
-        $this->validateCredentials($credentials['consumer']);
-        $this->validateCredentials($credentials['token']);
-
-        $consumerCredentials = new ConsumerCredentials();
-        $consumerCredentials->setIdentifier($credentials['consumer']['identifier']);
-        $consumerCredentials->setSecret($credentials['consumer']['secret']);
-
-        $token = new TokenCredentials();
-        $token->setIdentifier($credentials['token']['identifier']);
-        $token->setSecret($credentials['token']['secret']);
-
-        return [$consumerCredentials, $token];
+        return $credentials;
     }
 
     /**
-     * Save server credentials to cache
+     * Load client token from file
      */
-    private function saveCredentialsToCache($consumerCredentials)
+    protected function loadClientCredentials()
+    {
+        if (null === ($credentials = FileHelper::loadJsonFile(self::CLIENT_CREDENTIALS, false))) {
+            return null;
+        }
+
+        try {
+            $this->validateCredentials($credentials, self::DEFAULT_ATTRIBUTES);
+        }
+        catch (CredentialsException $e) {
+            throw new CredentialsException('Missing client credential attribute: ' . $e->getMessage());
+        }
+
+        $clientCredentials = new ClientCredentials();
+        $clientCredentials->setIdentifier($credentials['identifier']);
+        $clientCredentials->setSecret($credentials['secret']);
+        // $clientCredentials->setCallbackUri('oob');
+
+        return $clientCredentials;
+    }
+
+    /**
+     * Save client token to file
+     */
+    protected function saveClientCredentials($credentials)
+    {
+        $this->saveCredentials(self::CLIENT_CREDENTIALS, $credentials);
+    }
+
+    /**
+     * Load access token from file
+     */
+    protected function loadTokenCredentials()
+    {
+        if (null === ($credentials = FileHelper::loadJsonFile(self::TOKEN_CREDENTIALS, false))) {
+            return null;
+        }
+
+        try {
+            $this->validateCredentials($credentials, self::DEFAULT_ATTRIBUTES);
+        }
+        catch (CredentialsException $e) {
+            throw new CredentialsException('Missing token credential attribue: ' . $e->getMessage());
+        }
+
+        $consumerCredentials = new TokenCredentials();
+        $consumerCredentials->setIdentifier($credentials['identifier']);
+        $consumerCredentials->setSecret($credentials['secret']);
+
+        return $consumerCredentials;
+    }
+
+    /**
+     * Save access token to file
+     */
+    protected function saveTokenCredentials($credentials)
+    {
+        return $this->saveCredentials(self::TOKEN_CREDENTIALS, $credentials);
+    }
+
+    /**
+     * Save credentials to json file
+     */
+    protected function saveCredentials($file, $credentials)
     {
         $json = json_encode([
-            'consumer' => [
-                'identifier' => $consumerCredentials->getIdentifier(),
-                'secret' => $consumerCredentials->getSecret(),
-            ],
-            'token' => [
-                'identifier' => $this->token->getIdentifier(),
-                'secret' => $this->token->getSecret(),
-            ],
+            'identifier' => $credentials->getIdentifier(),
+            'secret' => $credentials->getSecret(),
         ], JSON_PRETTY_PRINT);
 
-        if (false === @file_put_contents(self::CREDENTIALS_FILE, $json)) {
-            throw new \Exception('Could not save credentials to ' . self::CREDENTIALS_FILE);
+        if (false === @file_put_contents($file, $json)) {
+            throw new \Exception('Could not save credentials to ' . $file);
         }
     }
 
     /**
      * Validate credentials loaded from cache
      */
-    private function validateCredentials($credentials)
+    private function validateCredentials($credentials, $attributes)
     {
-        if (!isset($credentials['identifier']) || empty($credentials['identifier'])) {
-            throw new CredentialsException("Missing client identifier");
-        }
-        if (!isset($credentials['secret']) || empty($credentials['secret'])) {
-            throw new CredentialsException("Missing client secret");
+        foreach ($attributes as $key) {
+            if (!isset($credentials[$key]) || empty($credentials[$key])) {
+                throw new CredentialsException($key);
+            }
         }
     }
 
@@ -142,6 +196,28 @@ class ApiClient
             $this->createApiServer();
         }
 
+        // add text/plain header
+        $headers = $options['headers'] ?? [];
+        $headers = array_merge($headers, [
+            'Accept' => 'application/json, text/plain',
+        ]);
+
+        $options['headers'] = $headers;
+
+        // raise HTTP 401 back to API client
+        $options['httpunauthorized'] = 'true';
+
+        try {
+            return $this->executeCall($api, $queryParams, $options);
+        }
+        catch (BadResponseException $e) {
+            $this->createTokenCredentials();
+            return $this->executeCall($api, $queryParams, $options);
+        }
+    }
+
+    private function executeCall($api, $queryParams, $options)
+    {
         return $this->server->call($this->token, $api, $queryParams, $options);
     }
 }

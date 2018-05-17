@@ -8,18 +8,17 @@
 require_once(__DIR__ . '/vendor/autoload.php');
 
 use Discovergy\ApiClient;
-use Discovergy\FileHelper;
-
-const CONFIG_FILE = __DIR__ . '/config.json';
 
 /*
+ * discovergy.json
+ *
  * {
+ *   "clientid": "discovergy-example",
  *   "identifier": "",
  *   "secret": "",
  * }
  */
-$config = FileHelper::loadJsonFile(CONFIG_FILE, true);
-$api = new ApiClient($config);
+$api = new ApiClient();
 
 $json = $api->call('meters');
 print_r($json);

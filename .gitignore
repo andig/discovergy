@@ -1,4 +1,5 @@
 /vendor/
 composer.lock
-config.json
-secret.json
+discovergy.json
+client.json
+token.json
