@@ -52,7 +52,8 @@ class ApiClient
 
         $this->server = new Discovergy($clientCredentials);
 
-        if (null == ($this->token = $this->loadTokenCredentials())) {
+        // recreate token when client credentials are recreated
+        if (isset($oob) || null == ($this->token = $this->loadTokenCredentials())) {
             $this->createTokenCredentials();
         }
     }

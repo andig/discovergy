@@ -1,3 +1,4 @@
+#!/usr/bin/php
 <?php
 /**
  * @copyright Copyright (c) 2018, Andreas Goetz
@@ -22,6 +23,7 @@ $api = new ApiClient();
 
 $json = $api->call('meters');
 print_r($json);
+die;
 
 $meter0 = sprintf('%s_%s', $json[0]['type'], $json[0]['serialNumber']);
 
